@@ -31,7 +31,7 @@ export class ClaudeSandbox {
     }
 
     this.git = simpleGit();
-    this.credentialManager = new CredentialManager();
+    this.credentialManager = new CredentialManager(config);
     this.gitMonitor = new GitMonitor(this.git);
     this.containerManager = new ContainerManager(this.docker, config);
     this.ui = new UIManager();
@@ -255,6 +255,12 @@ export class ClaudeSandbox {
 
   private async pushBranchAndCreatePR(): Promise<void> {
     await this.pushBranch();
+
+    // Skip PR creation if GitHub is disabled
+    if (this.config.disableGithub) {
+      console.log(chalk.yellow("✓ GitHub disabled - skipping PR creation"));
+      return;
+    }
 
     // Use gh CLI to create PR
     const { execSync } = require("child_process");

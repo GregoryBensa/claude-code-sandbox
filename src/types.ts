@@ -32,6 +32,7 @@ export interface SandboxConfig {
   mountedFolderPath?: string;
   pythonVenvPath?: string;
   autoActivateVenv?: boolean;
+  disableGithub?: boolean;
 }
 
 export interface Credentials {

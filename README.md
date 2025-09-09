@@ -94,6 +94,7 @@ Options:
   --mount-path <path>    Specify a different path to mount (default: current directory)
   --venv <path>          Python virtual environment path (default: .venv)
   --no-venv              Disable automatic Python venv activation
+  --no-github            Disable GitHub integration (no GitHub CLI, tokens, or git config)
 ```
 
 #### `claude-sandbox attach [container-id]`
@@ -231,6 +232,7 @@ Create a `claude-sandbox.config.json` file (see `claude-sandbox.config.example.j
 - `mountedFolderPath`: Path to mount as workspace (default: current directory)
 - `pythonVenvPath`: Path to Python virtual environment (default: ".venv")
 - `autoActivateVenv`: Automatically activate Python venv if found (default: true)
+- `disableGithub`: Disable GitHub integration completely (default: false)
 
 #### Mount Configuration
 
@@ -281,6 +283,33 @@ The virtual environment is activated:
 - Before starting Claude Code
 - Before running setup commands
 - In the bash shell when Claude exits
+
+### Disable GitHub Integration
+
+For air-gapped environments or when working with non-GitHub repositories, you can disable GitHub integration:
+
+- **No GitHub CLI**: Skip installation of the `gh` command in containers
+- **No GitHub tokens**: Skip GitHub credential discovery and configuration
+- **No git config**: Skip GitHub-specific git URL configurations
+- **No PR creation**: Disable automatic pull request creation
+
+Example usage:
+
+```bash
+# Disable GitHub integration
+claude-sandbox --no-github
+
+# Configuration file
+{
+  "disableGithub": true
+}
+```
+
+When GitHub is disabled:
+- GitHub CLI is not installed in the container (smaller image size)
+- GitHub tokens are not discovered or passed to the container
+- Git remote URLs are not automatically configured for GitHub
+- PR creation is skipped even if requested
 
 ### Mounted Folder Mode
 

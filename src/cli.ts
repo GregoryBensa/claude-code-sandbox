@@ -88,6 +88,7 @@ program
   .option("--mount-path <path>", "Specify a different path to mount (default: current directory)")
   .option("--venv <path>", "Python virtual environment path (default: .venv)")
   .option("--no-venv", "Disable automatic Python venv activation")
+  .option("--no-github", "Disable GitHub integration (no GitHub CLI, tokens, or git config)")
   .action(async (options) => {
     console.log(chalk.blue("🚀 Starting Claude Sandbox..."));
 
@@ -113,6 +114,9 @@ program
     }
     if (options.venv === false) {
       config.autoActivateVenv = false;
+    }
+    if (options.github === false) {
+      config.disableGithub = true;
     }
 
     const sandbox = new ClaudeSandbox(config);
@@ -155,6 +159,7 @@ program
   .option("--mount-path <path>", "Specify a different path to mount (default: current directory)")
   .option("--venv <path>", "Python virtual environment path (default: .venv)")
   .option("--no-venv", "Disable automatic Python venv activation")
+  .option("--no-github", "Disable GitHub integration (no GitHub CLI, tokens, or git config)")
   .action(async (options) => {
     console.log(chalk.blue("🚀 Starting new Claude Sandbox container..."));
 
@@ -186,6 +191,9 @@ program
     }
     if (options.venv === false) {
       config.autoActivateVenv = false;
+    }
+    if (options.github === false) {
+      config.disableGithub = true;
     }
 
     const sandbox = new ClaudeSandbox(config);

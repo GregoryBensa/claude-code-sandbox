@@ -120,6 +120,14 @@ export class ContainerManager {
       ? "nvidia/cuda:12.2.2-cudnn8-runtime-ubuntu22.04" 
       : "ubuntu:22.04";
     
+    // GitHub CLI installation (conditional)
+    const githubCliInstallation = this.config.disableGithub ? "" : `
+# Install GitHub CLI
+RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \\
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null \\
+    && apt-get update \\
+    && apt-get install -y gh`;
+    
     const dockerfile = `
 FROM ${baseImage}
 
@@ -140,12 +148,7 @@ RUN apt-get update && apt-get install -y \\
 # Install Node.js 20.x
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \\
     && apt-get install -y nodejs
-
-# Install GitHub CLI
-RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \\
-    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null \\
-    && apt-get update \\
-    && apt-get install -y gh
+${githubCliInstallation}
 
 # Install Claude Code
 RUN npm install -g @anthropic-ai/claude-code@latest
@@ -440,16 +443,18 @@ exec claude --dangerously-skip-permissions' > /start-claude.sh && \\
       env.push(`ANTHROPIC_API_KEY=${process.env.ANTHROPIC_API_KEY}`);
     }
 
-    // GitHub token - check multiple sources
-    if (credentials.github?.token) {
-      env.push(`GITHUB_TOKEN=${credentials.github.token}`);
-    } else if (process.env.GITHUB_TOKEN) {
-      // Pass through from environment
-      env.push(`GITHUB_TOKEN=${process.env.GITHUB_TOKEN}`);
-    } else if (process.env.GH_TOKEN) {
-      // GitHub CLI uses GH_TOKEN
-      env.push(`GITHUB_TOKEN=${process.env.GH_TOKEN}`);
-      env.push(`GH_TOKEN=${process.env.GH_TOKEN}`);
+    // GitHub token - check multiple sources (unless GitHub is disabled)
+    if (!this.config.disableGithub) {
+      if (credentials.github?.token) {
+        env.push(`GITHUB_TOKEN=${credentials.github.token}`);
+      } else if (process.env.GITHUB_TOKEN) {
+        // Pass through from environment
+        env.push(`GITHUB_TOKEN=${process.env.GITHUB_TOKEN}`);
+      } else if (process.env.GH_TOKEN) {
+        // GitHub CLI uses GH_TOKEN
+        env.push(`GITHUB_TOKEN=${process.env.GH_TOKEN}`);
+        env.push(`GH_TOKEN=${process.env.GH_TOKEN}`);
+      }
     }
 
     // Pass through git author info if available
@@ -1075,11 +1080,13 @@ exec /bin/bash`;
           git config --global --add safe.directory /workspace &&
           # Clean up macOS resource fork files in git pack directory
           find .git/objects/pack -name "._pack-*.idx" -type f -delete 2>/dev/null || true &&
-          # Configure git to use GitHub token if available
-          if [ -n "$GITHUB_TOKEN" ]; then
+          # Configure git to use GitHub token if available and GitHub is not disabled
+          if [ -n "$GITHUB_TOKEN" ] && [ "${this.config.disableGithub ? "true" : "false"}" != "true" ]; then
             git config --global url."https://\${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
             git config --global url."https://\${GITHUB_TOKEN}@github.com/".insteadOf "git@github.com:"
             echo "✓ Configured git to use GitHub token"
+          elif [ "${this.config.disableGithub ? "true" : "false"}" = "true" ]; then
+            echo "✓ GitHub support disabled - skipping GitHub configuration"
           fi &&
           # Handle different branch setup scenarios
           if [ -n "${prFetchRef || ""}" ]; then

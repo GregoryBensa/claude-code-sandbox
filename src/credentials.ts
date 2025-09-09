@@ -2,10 +2,12 @@ import fs from "fs/promises";
 import path from "path";
 import os from "os";
 import { execSync } from "child_process";
-import { Credentials } from "./types";
+import { Credentials, SandboxConfig } from "./types";
 import chalk from "chalk";
 
 export class CredentialManager {
+  constructor(private config: SandboxConfig) {}
+  
   async discover(): Promise<Credentials> {
     const credentials: Credentials = {};
 
@@ -21,8 +23,12 @@ export class CredentialManager {
       );
     }
 
-    // Discover GitHub credentials
-    credentials.github = await this.discoverGitHubCredentials();
+    // Discover GitHub credentials (unless disabled)
+    if (!this.config.disableGithub) {
+      credentials.github = await this.discoverGitHubCredentials();
+    } else {
+      console.log(chalk.yellow("✓ GitHub disabled - skipping GitHub credential discovery"));
+    }
 
     return credentials;
   }
