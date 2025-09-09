@@ -8,6 +8,7 @@ import chalk from "chalk";
 import { exec } from "child_process";
 import { promisify } from "util";
 import { ShadowRepository } from "./git/shadow-repository";
+import { SandboxConfig } from "./types";
 
 const execAsync = promisify(exec);
 
@@ -31,9 +32,11 @@ export class WebUIServer {
   private originalRepo: string = "";
   private currentBranch: string = "main";
   private fileWatchers: Map<string, any> = new Map(); // container -> monitor (inotify stream or interval)
+  private config: SandboxConfig;
 
-  constructor(docker: Docker) {
+  constructor(docker: Docker, config: SandboxConfig) {
     this.docker = docker;
+    this.config = config;
     this.app = express();
     this.httpServer = createServer(this.app);
     this.io = new Server(this.httpServer, {
@@ -127,17 +130,19 @@ export class WebUIServer {
 
         // Get PR info using GitHub CLI (always use original repo)
         let prs = [];
-        try {
-          const prResult = await execAsync(
-            `gh pr list --head "${currentBranch}" --json number,title,state,url,isDraft,mergeable`,
-            {
-              cwd: this.originalRepo || process.cwd(),
-            },
-          );
-          prs = JSON.parse(prResult.stdout || "[]");
-        } catch (error) {
-          // GitHub CLI might not be installed or not authenticated
-          console.warn("Could not fetch PR info:", error);
+        if (!this.config.disableGithub) {
+          try {
+            const prResult = await execAsync(
+              `gh pr list --head "${currentBranch}" --json number,title,state,url,isDraft,mergeable`,
+              {
+                cwd: this.originalRepo || process.cwd(),
+              },
+            );
+            prs = JSON.parse(prResult.stdout || "[]");
+          } catch (error) {
+            // GitHub CLI might not be installed or not authenticated
+            console.warn("Could not fetch PR info:", error);
+          }
         }
 
         const branchUrl = repoUrl ? `${repoUrl}/tree/${currentBranch}` : "";

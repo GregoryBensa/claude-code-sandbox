@@ -209,6 +209,9 @@ program
     const spinner = ora("Looking for containers...").start();
 
     try {
+      // Load config to pass to WebUIServer
+      const config = await loadConfig("./claude-sandbox.config.json");
+      
       let targetContainerId = containerId;
 
       // If no container ID provided, show selection UI
@@ -226,7 +229,7 @@ program
       spinner.text = "Launching web UI...";
 
       // Always launch web UI
-      const webServer = new WebUIServer(docker);
+      const webServer = new WebUIServer(docker, config);
       const url = await webServer.start();
       const fullUrl = `${url}?container=${targetContainerId}`;
 

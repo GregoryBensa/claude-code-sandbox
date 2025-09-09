@@ -161,7 +161,7 @@ export class ClaudeSandbox {
       }
 
       // Always launch web UI
-      this.webServer = new WebUIServer(this.docker);
+      this.webServer = new WebUIServer(this.docker, this.config);
 
       // Pass repo info to web server
       this.webServer.setRepoInfo(process.cwd(), branchName);
