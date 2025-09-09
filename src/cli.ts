@@ -86,6 +86,8 @@ program
   .option("--gpu-devices <devices>", "Specify GPU devices (e.g., '0,1' or 'all')")
   .option("--mount-folder", "Mount the current directory instead of copying files")
   .option("--mount-path <path>", "Specify a different path to mount (default: current directory)")
+  .option("--venv <path>", "Python virtual environment path (default: .venv)")
+  .option("--no-venv", "Disable automatic Python venv activation")
   .action(async (options) => {
     console.log(chalk.blue("🚀 Starting Claude Sandbox..."));
 
@@ -105,6 +107,12 @@ program
     }
     if (options.mountPath) {
       config.mountedFolderPath = options.mountPath;
+    }
+    if (options.venv) {
+      config.pythonVenvPath = options.venv;
+    }
+    if (options.venv === false) {
+      config.autoActivateVenv = false;
     }
 
     const sandbox = new ClaudeSandbox(config);
@@ -145,6 +153,8 @@ program
   .option("--gpu-devices <devices>", "Specify GPU devices (e.g., '0,1' or 'all')")
   .option("--mount-folder", "Mount the current directory instead of copying files")
   .option("--mount-path <path>", "Specify a different path to mount (default: current directory)")
+  .option("--venv <path>", "Python virtual environment path (default: .venv)")
+  .option("--no-venv", "Disable automatic Python venv activation")
   .action(async (options) => {
     console.log(chalk.blue("🚀 Starting new Claude Sandbox container..."));
 
@@ -170,6 +180,12 @@ program
     }
     if (options.mountPath) {
       config.mountedFolderPath = options.mountPath;
+    }
+    if (options.venv) {
+      config.pythonVenvPath = options.venv;
+    }
+    if (options.venv === false) {
+      config.autoActivateVenv = false;
     }
 
     const sandbox = new ClaudeSandbox(config);

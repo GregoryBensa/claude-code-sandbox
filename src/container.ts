@@ -995,11 +995,35 @@ exec claude --dangerously-skip-permissions' > /start-claude.sh && \\
 
     // Determine what to show in the web UI
     const defaultShell = this.config.defaultShell || "claude";
+    
+    // Determine venv path - use config or default to .venv
+    const venvPath = this.config.pythonVenvPath || ".venv";
+    const autoActivateVenv = this.config.autoActivateVenv !== false; // Default to true
 
     // Startup script that keeps session alive
     const startupScript =
       defaultShell === "claude"
         ? `#!/bin/bash
+
+# Detect and activate Python virtual environment
+VENV_ACTIVATED=false
+if [ ${autoActivateVenv ? "true" : "false"} = "true" ]; then
+  # Check for various common venv locations
+  VENV_PATHS="${venvPath} venv .virtualenv env"
+  for vpath in $VENV_PATHS; do
+    if [ -f "/workspace/$vpath/bin/activate" ]; then
+      echo "🐍 Activating Python virtual environment: $vpath"
+      source "/workspace/$vpath/bin/activate"
+      VENV_ACTIVATED=true
+      break
+    fi
+  done
+  
+  if [ "$VENV_ACTIVATED" = "false" ] && [ -f "/workspace/${venvPath}/bin/activate" ]; then
+    echo "⚠️  Virtual environment not found at: ${venvPath}"
+  fi
+fi
+
 echo "🚀 Starting Claude Code..."
 echo "Press Ctrl+C to drop to bash shell"
 echo ""
@@ -1015,6 +1039,22 @@ echo "Type 'exit' to end the session"
 echo ""
 exec /bin/bash`
         : `#!/bin/bash
+
+# Detect and activate Python virtual environment
+VENV_ACTIVATED=false
+if [ ${autoActivateVenv ? "true" : "false"} = "true" ]; then
+  # Check for various common venv locations
+  VENV_PATHS="${venvPath} venv .virtualenv env"
+  for vpath in $VENV_PATHS; do
+    if [ -f "/workspace/$vpath/bin/activate" ]; then
+      echo "🐍 Activating Python virtual environment: $vpath"
+      source "/workspace/$vpath/bin/activate"
+      VENV_ACTIVATED=true
+      break
+    fi
+  done
+fi
+
 echo "Welcome to Claude Code Sandbox!"
 echo "Type 'claude --dangerously-skip-permissions' to start Claude Code"
 echo "Type 'exit' to end the session"
@@ -1131,6 +1171,13 @@ EOF
         ),
       );
 
+      // Prepare venv activation command if needed
+      const venvPath = this.config.pythonVenvPath || ".venv";
+      const autoActivateVenv = this.config.autoActivateVenv !== false;
+      const venvActivation = autoActivateVenv 
+        ? `if [ -f "/workspace/${venvPath}/bin/activate" ]; then source "/workspace/${venvPath}/bin/activate"; fi; `
+        : "";
+
       for (let i = 0; i < this.config.setupCommands.length; i++) {
         const command = this.config.setupCommands[i];
         console.log(
@@ -1141,7 +1188,7 @@ EOF
         console.log(chalk.white(`  ${command}`));
 
         const cmdExec = await container.exec({
-          Cmd: ["/bin/bash", "-c", command],
+          Cmd: ["/bin/bash", "-c", venvActivation + command],
           AttachStdout: true,
           AttachStderr: true,
           WorkingDir: "/workspace",

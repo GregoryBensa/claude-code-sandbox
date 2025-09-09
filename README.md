@@ -92,6 +92,8 @@ Options:
   --gpu-devices <devices> Specify GPU devices (e.g., '0,1' or 'all')
   --mount-folder         Mount the current directory instead of copying files
   --mount-path <path>    Specify a different path to mount (default: current directory)
+  --venv <path>          Python virtual environment path (default: .venv)
+  --no-venv              Disable automatic Python venv activation
 ```
 
 #### `claude-sandbox attach [container-id]`
@@ -227,6 +229,8 @@ Create a `claude-sandbox.config.json` file (see `claude-sandbox.config.example.j
 - `gpuDevices`: Specify GPU devices - can be string like "0,1" or "all", or array like [0, 1]
 - `useMountedFolder`: Use mounted folder mode instead of copying files (boolean)
 - `mountedFolderPath`: Path to mount as workspace (default: current directory)
+- `pythonVenvPath`: Path to Python virtual environment (default: ".venv")
+- `autoActivateVenv`: Automatically activate Python venv if found (default: true)
 
 #### Mount Configuration
 
@@ -244,6 +248,39 @@ Example use cases:
 - Access host system resources (use with caution)
 
 ## Features
+
+### Python Virtual Environment Support
+
+Claude Code Sandbox automatically detects and activates Python virtual environments:
+
+- **Automatic detection**: Checks for common venv locations (`.venv`, `venv`, `.virtualenv`, `env`)
+- **Custom paths**: Specify custom venv location with `--venv` option
+- **Setup integration**: Virtual environments are activated for setup commands too
+- **Optional**: Can be disabled with `--no-venv` flag
+
+Example usage:
+
+```bash
+# Use default .venv
+claude-sandbox
+
+# Specify custom venv path
+claude-sandbox --venv my-custom-venv
+
+# Disable venv activation
+claude-sandbox --no-venv
+
+# Configuration file
+{
+  "pythonVenvPath": "my-venv",
+  "autoActivateVenv": true
+}
+```
+
+The virtual environment is activated:
+- Before starting Claude Code
+- Before running setup commands
+- In the bash shell when Claude exits
 
 ### Mounted Folder Mode
 

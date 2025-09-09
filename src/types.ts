@@ -30,6 +30,8 @@ export interface SandboxConfig {
   gpuDevices?: string | number[];
   useMountedFolder?: boolean;
   mountedFolderPath?: string;
+  pythonVenvPath?: string;
+  autoActivateVenv?: boolean;
 }
 
 export interface Credentials {
