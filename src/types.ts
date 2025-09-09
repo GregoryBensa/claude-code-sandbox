@@ -28,6 +28,8 @@ export interface SandboxConfig {
   dockerSocketPath?: string;
   enableGpu?: boolean;
   gpuDevices?: string | number[];
+  useMountedFolder?: boolean;
+  mountedFolderPath?: string;
 }
 
 export interface Credentials {

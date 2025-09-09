@@ -148,13 +148,17 @@ export class ClaudeSandbox {
         chalk.green(`✓ Started container: ${containerId.substring(0, 12)}`),
       );
 
-      // Start monitoring for commits
-      this.gitMonitor.on("commit", async (commit) => {
-        await this.handleCommit(commit);
-      });
+      // Start monitoring for commits (only if git repo exists)
+      if (!this.config.useMountedFolder || (await this.git.checkIsRepo())) {
+        this.gitMonitor.on("commit", async (commit) => {
+          await this.handleCommit(commit);
+        });
 
-      await this.gitMonitor.start(branchName);
-      console.log(chalk.blue("✓ Git monitoring started"));
+        await this.gitMonitor.start(branchName);
+        console.log(chalk.blue("✓ Git monitoring started"));
+      } else {
+        console.log(chalk.yellow("✓ Mounted folder mode - git monitoring skipped"));
+      }
 
       // Always launch web UI
       this.webServer = new WebUIServer(this.docker);
@@ -182,6 +186,12 @@ export class ClaudeSandbox {
   }
 
   private async verifyGitRepo(): Promise<void> {
+    // Skip git verification if using mounted folder mode
+    if (this.config.useMountedFolder) {
+      console.log(chalk.yellow("✓ Mounted folder mode - git repository optional"));
+      return;
+    }
+    
     const isRepo = await this.git.checkIsRepo();
     if (!isRepo) {
       throw new Error(

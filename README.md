@@ -90,6 +90,8 @@ Options:
   --no-pr                Disable automatic PR creation
   --gpu                  Enable GPU support for the container
   --gpu-devices <devices> Specify GPU devices (e.g., '0,1' or 'all')
+  --mount-folder         Mount the current directory instead of copying files
+  --mount-path <path>    Specify a different path to mount (default: current directory)
 ```
 
 #### `claude-sandbox attach [container-id]`
@@ -223,6 +225,8 @@ Create a `claude-sandbox.config.json` file (see `claude-sandbox.config.example.j
 - `dockerSocketPath`: Custom Docker/Podman socket path (auto-detected by default)
 - `enableGpu`: Enable GPU support for the container (boolean)
 - `gpuDevices`: Specify GPU devices - can be string like "0,1" or "all", or array like [0, 1]
+- `useMountedFolder`: Use mounted folder mode instead of copying files (boolean)
+- `mountedFolderPath`: Path to mount as workspace (default: current directory)
 
 #### Mount Configuration
 
@@ -240,6 +244,40 @@ Example use cases:
 - Access host system resources (use with caution)
 
 ## Features
+
+### Mounted Folder Mode
+
+Claude Code Sandbox supports mounting directories directly instead of copying files:
+
+- **Performance**: Instant file changes without copying overhead
+- **Large datasets**: Work with large files that would be slow to copy
+- **Non-git folders**: Use Claude on directories that aren't git repositories
+- **Real-time sync**: Changes are immediately reflected in both container and host
+
+Example usage:
+
+```bash
+# Mount current directory
+claude-sandbox --mount-folder
+
+# Mount a specific directory
+claude-sandbox --mount-folder --mount-path /path/to/project
+
+# Use configuration file
+cat > claude-sandbox.config.json << EOF
+{
+  "useMountedFolder": true,
+  "mountedFolderPath": "/home/user/projects/myapp"
+}
+EOF
+claude-sandbox
+```
+
+**Note**: In mounted folder mode:
+- Git operations are optional (works with non-git directories)
+- File changes are immediate in both directions
+- No automatic git branch creation if not a git repository
+- Shadow repository sync is disabled
 
 ### GPU Support
 

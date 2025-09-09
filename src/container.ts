@@ -47,24 +47,32 @@ export class ContainerManager {
     await container.start();
     console.log(chalk.green("✓ Container started"));
 
-    // Copy working directory into container
-    console.log(chalk.blue("• Copying files into container..."));
-    try {
-      await this._copyWorkingDirectory(container, containerConfig.workDir);
-      console.log(chalk.green("✓ Files copied"));
+    // Only copy files if not using mounted folder
+    if (!this.config.useMountedFolder) {
+      console.log(chalk.blue("• Copying files into container..."));
+      try {
+        await this._copyWorkingDirectory(container, containerConfig.workDir);
+        console.log(chalk.green("✓ Files copied"));
 
-      // Copy Claude configuration if it exists
+        // Copy Claude configuration if it exists
+        await this._copyClaudeConfig(container);
+
+        // Copy git configuration if it exists
+        await this._copyGitConfig(container);
+      } catch (error) {
+        console.error(chalk.red("✗ File copy failed:"), error);
+        // Clean up container on failure
+        await container.stop().catch(() => {});
+        await container.remove().catch(() => {});
+        this.containers.delete(container.id);
+        throw error;
+      }
+    } else {
+      console.log(chalk.yellow("✓ Using mounted folder - skipping file copy"));
+      
+      // Still copy Claude and git configs to user home
       await this._copyClaudeConfig(container);
-
-      // Copy git configuration if it exists
       await this._copyGitConfig(container);
-    } catch (error) {
-      console.error(chalk.red("✗ File copy failed:"), error);
-      // Clean up container on failure
-      await container.stop().catch(() => {});
-      await container.remove().catch(() => {});
-      this.containers.delete(container.id);
-      throw error;
     }
 
     // Give the container a moment to initialize
@@ -478,13 +486,17 @@ exec claude --dangerously-skip-permissions' > /start-claude.sh && \\
   }
 
   private prepareVolumes(
-    _workDir: string,
+    workDir: string,
     _credentials: Credentials,
   ): string[] {
-    // NO MOUNTING workspace - we'll copy files instead
     const volumes: string[] = [];
 
-    // NO SSH mounting - we'll use GitHub tokens instead
+    // If using mounted folder mode, mount the workspace directory
+    if (this.config.useMountedFolder) {
+      const mountPath = this.config.mountedFolderPath || workDir;
+      volumes.push(`${mountPath}:/workspace`);
+      console.log(chalk.blue(`✓ Mounting ${mountPath} as workspace`));
+    }
 
     // Add custom volumes (legacy format)
     if (this.config.volumes) {
@@ -1016,45 +1028,56 @@ exec /bin/bash`;
         `
         cd /workspace &&
         sudo chown -R claude:claude /workspace &&
-        git config --global --add safe.directory /workspace &&
-        # Clean up macOS resource fork files in git pack directory
-        find .git/objects/pack -name "._pack-*.idx" -type f -delete 2>/dev/null || true &&
-        # Configure git to use GitHub token if available
-        if [ -n "$GITHUB_TOKEN" ]; then
-          git config --global url."https://\${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
-          git config --global url."https://\${GITHUB_TOKEN}@github.com/".insteadOf "git@github.com:"
-          echo "✓ Configured git to use GitHub token"
-        fi &&
-        # Handle different branch setup scenarios
-        if [ -n "${prFetchRef || ""}" ]; then
-          echo "• Fetching PR branch..." &&
-          git fetch origin ${prFetchRef} &&
-          if git show-ref --verify --quiet refs/heads/"${branchName}"; then
-            git checkout "${branchName}" &&
-            echo "✓ Switched to existing PR branch: ${branchName}"
+        
+        # Check if this is a git repository
+        if [ -d .git ] || git rev-parse --git-dir > /dev/null 2>&1; then
+          echo "✓ Git repository detected" &&
+          git config --global --add safe.directory /workspace &&
+          # Clean up macOS resource fork files in git pack directory
+          find .git/objects/pack -name "._pack-*.idx" -type f -delete 2>/dev/null || true &&
+          # Configure git to use GitHub token if available
+          if [ -n "$GITHUB_TOKEN" ]; then
+            git config --global url."https://\${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
+            git config --global url."https://\${GITHUB_TOKEN}@github.com/".insteadOf "git@github.com:"
+            echo "✓ Configured git to use GitHub token"
+          fi &&
+          # Handle different branch setup scenarios
+          if [ -n "${prFetchRef || ""}" ]; then
+            echo "• Fetching PR branch..." &&
+            git fetch origin ${prFetchRef} &&
+            if git show-ref --verify --quiet refs/heads/"${branchName}"; then
+              git checkout "${branchName}" &&
+              echo "✓ Switched to existing PR branch: ${branchName}"
+            else
+              git checkout "${branchName}" &&
+              echo "✓ Checked out PR branch: ${branchName}"
+            fi
+          elif [ -n "${remoteFetchRef || ""}" ]; then
+            echo "• Fetching remote branch..." &&
+            git fetch origin &&
+            if git show-ref --verify --quiet refs/heads/"${branchName}"; then
+              git checkout "${branchName}" &&
+              git pull origin "${branchName}" &&
+              echo "✓ Switched to existing remote branch: ${branchName}"
+            else
+              git checkout -b "${branchName}" "${remoteFetchRef}" &&
+              echo "✓ Created local branch from remote: ${branchName}"
+            fi
           else
-            git checkout "${branchName}" &&
-            echo "✓ Checked out PR branch: ${branchName}"
-          fi
-        elif [ -n "${remoteFetchRef || ""}" ]; then
-          echo "• Fetching remote branch..." &&
-          git fetch origin &&
-          if git show-ref --verify --quiet refs/heads/"${branchName}"; then
-            git checkout "${branchName}" &&
-            git pull origin "${branchName}" &&
-            echo "✓ Switched to existing remote branch: ${branchName}"
-          else
-            git checkout -b "${branchName}" "${remoteFetchRef}" &&
-            echo "✓ Created local branch from remote: ${branchName}"
+            # Regular branch creation
+            if git show-ref --verify --quiet refs/heads/"${branchName}"; then
+              git checkout "${branchName}" &&
+              echo "✓ Switched to existing branch: ${branchName}"
+            else
+              git checkout -b "${branchName}" &&
+              echo "✓ Created new branch: ${branchName}"
+            fi
           fi
         else
-          # Regular branch creation
-          if git show-ref --verify --quiet refs/heads/"${branchName}"; then
-            git checkout "${branchName}" &&
-            echo "✓ Switched to existing branch: ${branchName}"
-          else
-            git checkout -b "${branchName}" &&
-            echo "✓ Created new branch: ${branchName}"
+          echo "⚠ Not a git repository - skipping git setup" &&
+          # If mounted folder mode and not a git repo, optionally initialize git
+          if [ "${this.config.useMountedFolder ? "true" : "false"}" = "true" ]; then
+            echo "Note: You can initialize git with 'git init' if needed"
           fi
         fi &&
         cat > /home/claude/start-session.sh << 'EOF'

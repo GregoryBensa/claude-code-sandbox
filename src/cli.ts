@@ -84,6 +84,8 @@ program
   )
   .option("--gpu", "Enable GPU support for the container")
   .option("--gpu-devices <devices>", "Specify GPU devices (e.g., '0,1' or 'all')")
+  .option("--mount-folder", "Mount the current directory instead of copying files")
+  .option("--mount-path <path>", "Specify a different path to mount (default: current directory)")
   .action(async (options) => {
     console.log(chalk.blue("🚀 Starting Claude Sandbox..."));
 
@@ -97,6 +99,12 @@ program
     }
     if (options.gpuDevices) {
       config.gpuDevices = options.gpuDevices;
+    }
+    if (options.mountFolder) {
+      config.useMountedFolder = true;
+    }
+    if (options.mountPath) {
+      config.mountedFolderPath = options.mountPath;
     }
 
     const sandbox = new ClaudeSandbox(config);
@@ -135,6 +143,8 @@ program
   )
   .option("--gpu", "Enable GPU support for the container")
   .option("--gpu-devices <devices>", "Specify GPU devices (e.g., '0,1' or 'all')")
+  .option("--mount-folder", "Mount the current directory instead of copying files")
+  .option("--mount-path <path>", "Specify a different path to mount (default: current directory)")
   .action(async (options) => {
     console.log(chalk.blue("🚀 Starting new Claude Sandbox container..."));
 
@@ -154,6 +164,12 @@ program
     }
     if (options.gpuDevices) {
       config.gpuDevices = options.gpuDevices;
+    }
+    if (options.mountFolder) {
+      config.useMountedFolder = true;
+    }
+    if (options.mountPath) {
+      config.mountedFolderPath = options.mountPath;
     }
 
     const sandbox = new ClaudeSandbox(config);
