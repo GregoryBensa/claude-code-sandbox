@@ -26,6 +26,8 @@ export interface SandboxConfig {
   remoteBranch?: string;
   prNumber?: string;
   dockerSocketPath?: string;
+  enableGpu?: boolean;
+  gpuDevices?: string | number[];
 }
 
 export interface Credentials {

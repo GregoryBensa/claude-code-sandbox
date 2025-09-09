@@ -13,6 +13,28 @@ export class ContainerManager {
     this.config = config;
   }
 
+  private async checkNvidiaRuntime(): Promise<boolean> {
+    try {
+      // Check if nvidia-smi is available on the host
+      const { execSync } = require("child_process");
+      execSync("which nvidia-smi", { stdio: "pipe" });
+      
+      // Check Docker daemon info for nvidia runtime
+      const info = await this.docker.info();
+      const runtimes = (info as any).Runtimes;
+      
+      if (runtimes && runtimes.nvidia) {
+        return true;
+      }
+      
+      // Even if runtime is not explicitly listed, modern Docker with nvidia-container-toolkit
+      // might support GPU through DeviceRequests API
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
   async start(containerConfig: any): Promise<string> {
     // Build or pull image
     await this.ensureImage();
@@ -85,8 +107,13 @@ export class ContainerManager {
   }
 
   private async buildDefaultImage(imageName: string): Promise<void> {
+    // Determine base image based on GPU support
+    const baseImage = this.config.enableGpu 
+      ? "nvidia/cuda:12.2.2-cudnn8-runtime-ubuntu22.04" 
+      : "ubuntu:22.04";
+    
     const dockerfile = `
-FROM ubuntu:22.04
+FROM ${baseImage}
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \\
@@ -245,6 +272,50 @@ exec claude --dangerously-skip-permissions' > /start-claude.sh && \\
     // Prepare volumes
     const volumes = this.prepareVolumes(workDir, credentials);
 
+    // Prepare host config with GPU support if enabled
+    const hostConfig: any = {
+      Binds: volumes,
+      AutoRemove: false,
+      NetworkMode: "bridge",
+    };
+
+    // Add GPU support if enabled
+    if (this.config.enableGpu) {
+      // Check if nvidia-docker runtime is available
+      const hasNvidiaRuntime = await this.checkNvidiaRuntime();
+      
+      if (hasNvidiaRuntime) {
+        console.log(chalk.green("✓ NVIDIA GPU support enabled"));
+        
+        // Use DeviceRequests for Docker API 1.40+ (preferred method)
+        hostConfig.DeviceRequests = [
+          {
+            Driver: "nvidia",
+            Count: -1, // All GPUs
+            Capabilities: [["gpu"]],
+            Options: {},
+          },
+        ];
+
+        // If specific GPU devices are requested
+        if (this.config.gpuDevices) {
+          if (typeof this.config.gpuDevices === "string") {
+            // String format like "0,1" or "all"
+            if (this.config.gpuDevices === "all") {
+              hostConfig.DeviceRequests[0].Count = -1;
+            } else {
+              hostConfig.DeviceRequests[0].DeviceIDs = this.config.gpuDevices.split(",");
+            }
+          } else if (Array.isArray(this.config.gpuDevices)) {
+            // Array format like [0, 1]
+            hostConfig.DeviceRequests[0].DeviceIDs = this.config.gpuDevices.map(String);
+          }
+        }
+      } else {
+        console.log(chalk.yellow("⚠ GPU requested but NVIDIA runtime not found. Continuing without GPU support."));
+      }
+    }
+
     // Create container
     const container = await this.docker.createContainer({
       Image: this.config.dockerImage || "claude-code-sandbox:latest",
@@ -252,11 +323,7 @@ exec claude --dangerously-skip-permissions' > /start-claude.sh && \\
         this.config.containerPrefix || "claude-code-sandbox"
       }-${Date.now()}`,
       Env: env,
-      HostConfig: {
-        Binds: volumes,
-        AutoRemove: false,
-        NetworkMode: "bridge",
-      },
+      HostConfig: hostConfig,
       WorkingDir: "/workspace",
       Cmd: ["/bin/bash", "-l"],
       AttachStdin: true,

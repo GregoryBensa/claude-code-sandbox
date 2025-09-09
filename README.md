@@ -88,6 +88,8 @@ Options:
   --no-web               Disable web UI (use terminal attach)
   --no-push              Disable automatic branch pushing
   --no-pr                Disable automatic PR creation
+  --gpu                  Enable GPU support for the container
+  --gpu-devices <devices> Specify GPU devices (e.g., '0,1' or 'all')
 ```
 
 #### `claude-sandbox attach [container-id]`
@@ -219,6 +221,8 @@ Create a `claude-sandbox.config.json` file (see `claude-sandbox.config.example.j
 - `containerPrefix`: Custom prefix for container names
 - `claudeConfigPath`: Path to Claude configuration file
 - `dockerSocketPath`: Custom Docker/Podman socket path (auto-detected by default)
+- `enableGpu`: Enable GPU support for the container (boolean)
+- `gpuDevices`: Specify GPU devices - can be string like "0,1" or "all", or array like [0, 1]
 
 #### Mount Configuration
 
@@ -236,6 +240,34 @@ Example use cases:
 - Access host system resources (use with caution)
 
 ## Features
+
+### GPU Support
+
+Claude Code Sandbox supports NVIDIA GPU passthrough to containers, enabling GPU-accelerated workloads:
+
+- **Automatic detection**: The tool checks for NVIDIA GPU runtime availability
+- **CLI options**: Use `--gpu` to enable GPU support and `--gpu-devices` to specify devices
+- **Configuration**: Set `enableGpu` and `gpuDevices` in your config file
+- **CUDA base image**: When GPU is enabled, containers use NVIDIA CUDA base images
+
+Example usage:
+
+```bash
+# Enable GPU with all available devices
+claude-sandbox --gpu
+
+# Specify specific GPU devices
+claude-sandbox --gpu --gpu-devices "0,1"
+
+# Use configuration file
+cat > claude-sandbox.config.json << EOF
+{
+  "enableGpu": true,
+  "gpuDevices": "all"
+}
+EOF
+claude-sandbox
+```
 
 ### Podman Support
 

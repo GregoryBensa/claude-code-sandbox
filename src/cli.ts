@@ -82,6 +82,8 @@ program
     "Start with 'claude' or 'bash' shell",
     /^(claude|bash)$/i,
   )
+  .option("--gpu", "Enable GPU support for the container")
+  .option("--gpu-devices <devices>", "Specify GPU devices (e.g., '0,1' or 'all')")
   .action(async (options) => {
     console.log(chalk.blue("🚀 Starting Claude Sandbox..."));
 
@@ -89,6 +91,12 @@ program
     config.includeUntracked = false;
     if (options.shell) {
       config.defaultShell = options.shell.toLowerCase();
+    }
+    if (options.gpu) {
+      config.enableGpu = true;
+    }
+    if (options.gpuDevices) {
+      config.gpuDevices = options.gpuDevices;
     }
 
     const sandbox = new ClaudeSandbox(config);
@@ -125,6 +133,8 @@ program
     "Start with 'claude' or 'bash' shell",
     /^(claude|bash)$/i,
   )
+  .option("--gpu", "Enable GPU support for the container")
+  .option("--gpu-devices <devices>", "Specify GPU devices (e.g., '0,1' or 'all')")
   .action(async (options) => {
     console.log(chalk.blue("🚀 Starting new Claude Sandbox container..."));
 
@@ -138,6 +148,12 @@ program
     config.prNumber = options.pr;
     if (options.shell) {
       config.defaultShell = options.shell.toLowerCase();
+    }
+    if (options.gpu) {
+      config.enableGpu = true;
+    }
+    if (options.gpuDevices) {
+      config.gpuDevices = options.gpuDevices;
     }
 
     const sandbox = new ClaudeSandbox(config);
